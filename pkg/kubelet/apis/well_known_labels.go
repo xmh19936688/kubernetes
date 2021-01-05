@@ -19,32 +19,32 @@ package apis
 import (
 	"strings"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
-	// GA versions of the legacy beta labels.
-	// TODO: update kubelet and controllers to set both beta and GA labels, then export these constants
-	labelZoneFailureDomainGA = "failure-domain.kubernetes.io/zone"
-	labelZoneRegionGA        = "failure-domain.kubernetes.io/region"
-	labelInstanceTypeGA      = "kubernetes.io/instance-type"
+	// LabelOS is a label to indicate the operating system of the node.
+	// The OS labels are promoted to GA in 1.14. kubelet applies GA labels and stop applying the beta OS labels in Kubernetes 1.19.
+	LabelOS = "beta.kubernetes.io/os"
+	// LabelArch is a label to indicate the architecture of the node.
+	// The Arch labels are promoted to GA in 1.14. kubelet applies GA labels and stop applying the beta Arch labels in Kubernetes 1.19.
+	LabelArch = "beta.kubernetes.io/arch"
 )
 
 var kubeletLabels = sets.NewString(
 	v1.LabelHostname,
-	v1.LabelZoneFailureDomain,
-	v1.LabelZoneRegion,
+	v1.LabelTopologyZone,
+	v1.LabelTopologyRegion,
+	v1.LabelFailureDomainBetaZone,
+	v1.LabelFailureDomainBetaRegion,
 	v1.LabelInstanceType,
-	v1.LabelOS,
-	v1.LabelArch,
+	v1.LabelInstanceTypeStable,
+	v1.LabelOSStable,
+	v1.LabelArchStable,
 
-	v1.LegacyLabelOS,
-	v1.LegacyLabelArch,
-
-	labelZoneFailureDomainGA,
-	labelZoneRegionGA,
-	labelInstanceTypeGA,
+	LabelOS,
+	LabelArch,
 )
 
 var kubeletLabelNamespaces = sets.NewString(

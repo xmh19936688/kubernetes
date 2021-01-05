@@ -30,6 +30,7 @@ import (
 )
 
 type testCertsData struct {
+	testInitData
 	cfg *kubeadmapi.InitConfiguration
 }
 
@@ -43,7 +44,7 @@ func TestCertsWithCSRs(t *testing.T) {
 	defer os.RemoveAll(csrDir)
 	certDir := testutil.SetupTempDir(t)
 	defer os.RemoveAll(certDir)
-	cert := &certs.KubeadmCertAPIServer
+	cert := certs.KubeadmCertAPIServer()
 
 	certsData := &testCertsData{
 		cfg: testutil.GetDefaultInternalConfig(t),

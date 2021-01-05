@@ -1,7 +1,7 @@
 // +build windows
 
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,15 @@ limitations under the License.
 package stats
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Microsoft/hcsshim"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
-	statsapi "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
+	statsapi "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
 
 // listContainerNetworkStats returns the network stats of all the running containers.
@@ -39,24 +41,38 @@ func (p *criStatsProvider) listContainerNetworkStats() (map[string]*statsapi.Net
 
 	stats := make(map[string]*statsapi.NetworkStats)
 	for _, c := range containers {
-		container, err := hcsshim.OpenContainer(c.ID)
+		cstats, err := fetchContainerStats(c)
 		if err != nil {
-			klog.Warningf("Failed to open container %q with error '%v', continue to get stats for other containers", c.ID, err)
+			klog.V(4).Infof("Failed to fetch statistics for container %q with error '%v', continue to get stats for other containers", c.ID, err)
 			continue
 		}
-
-		cstats, err := container.Statistics()
-		if err != nil {
-			klog.Warningf("Failed to get statistics for container %q with error '%v', continue to get stats for other containers", c.ID, err)
-			continue
-		}
-
 		if len(cstats.Network) > 0 {
 			stats[c.ID] = hcsStatsToNetworkStats(cstats.Timestamp, cstats.Network)
 		}
 	}
 
 	return stats, nil
+}
+
+func fetchContainerStats(c hcsshim.ContainerProperties) (stats hcsshim.Statistics, err error) {
+	var (
+		container hcsshim.Container
+	)
+	container, err = hcsshim.OpenContainer(c.ID)
+	if err != nil {
+		return
+	}
+	defer func() {
+		if closeErr := container.Close(); closeErr != nil {
+			if err != nil {
+				err = fmt.Errorf("failed to close container after error %v; close error: %v", err, closeErr)
+			} else {
+				err = closeErr
+			}
+		}
+	}()
+
+	return container.Statistics()
 }
 
 // hcsStatsToNetworkStats converts hcsshim.Statistics.Network to statsapi.NetworkStats
@@ -66,11 +82,21 @@ func hcsStatsToNetworkStats(timestamp time.Time, hcsStats []hcsshim.NetworkStats
 		Interfaces: make([]statsapi.InterfaceStats, 0),
 	}
 
+	adapters := sets.NewString()
 	for _, stat := range hcsStats {
-		iStat := hcsStatsToInterfaceStats(stat)
-		if iStat != nil {
-			result.Interfaces = append(result.Interfaces, *iStat)
+		iStat, err := hcsStatsToInterfaceStats(stat)
+		if err != nil {
+			klog.Warningf("Failed to get HNS endpoint %q with error '%v', continue to get stats for other endpoints", stat.EndpointId, err)
+			continue
 		}
+
+		// Only count each adapter once.
+		if adapters.Has(iStat.Name) {
+			continue
+		}
+
+		result.Interfaces = append(result.Interfaces, *iStat)
+		adapters.Insert(iStat.Name)
 	}
 
 	// TODO(feiskyer): add support of multiple interfaces for getting default interface.
@@ -82,10 +108,15 @@ func hcsStatsToNetworkStats(timestamp time.Time, hcsStats []hcsshim.NetworkStats
 }
 
 // hcsStatsToInterfaceStats converts hcsshim.NetworkStats to statsapi.InterfaceStats.
-func hcsStatsToInterfaceStats(stat hcsshim.NetworkStats) *statsapi.InterfaceStats {
+func hcsStatsToInterfaceStats(stat hcsshim.NetworkStats) (*statsapi.InterfaceStats, error) {
+	endpoint, err := hcsshim.GetHNSEndpointByID(stat.EndpointId)
+	if err != nil {
+		return nil, err
+	}
+
 	return &statsapi.InterfaceStats{
-		Name:    stat.EndpointId,
+		Name:    endpoint.Name,
 		RxBytes: &stat.BytesReceived,
 		TxBytes: &stat.BytesSent,
-	}
+	}, nil
 }

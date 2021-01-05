@@ -3,14 +3,16 @@
 approvers:
 - saad-ali
 - rootfs
-- gnufied 
+- gnufied
 - jingxu97
 - jsafrane
 - msau42
+- davidz627
+- xing-yang
 reviewers:
 - saad-ali
 - rootfs
-- gnufied 
+- gnufied
 - jingxu97
 - jsafrane
 - msau42
@@ -18,3 +20,4 @@ reviewers:
 - copejon
 - verult
 - davidz627
+- xing-yang

@@ -28,9 +28,11 @@ import (
 // MarkControlPlane taints the control-plane and sets the control-plane label
 func MarkControlPlane(client clientset.Interface, controlPlaneName string, taints []v1.Taint) error {
 
-	fmt.Printf("[mark-control-plane] Marking the node %s as control-plane by adding the label \"%s=''\"\n", controlPlaneName, constants.LabelNodeRoleMaster)
+	// TODO: https://github.com/kubernetes/kubeadm/issues/2200
+	fmt.Printf("[mark-control-plane] Marking the node %s as control-plane by adding the labels \"%s=''\" and \"%s='' (deprecated)\"\n",
+		controlPlaneName, constants.LabelNodeRoleOldControlPlane, constants.LabelNodeRoleControlPlane)
 
-	if taints != nil && len(taints) > 0 {
+	if len(taints) > 0 {
 		taintStrs := []string{}
 		for _, taint := range taints {
 			taintStrs = append(taintStrs, taint.ToString())
@@ -39,7 +41,7 @@ func MarkControlPlane(client clientset.Interface, controlPlaneName string, taint
 	}
 
 	return apiclient.PatchNode(client, controlPlaneName, func(n *v1.Node) {
-		markMasterNode(n, taints)
+		markControlPlaneNode(n, taints)
 	})
 }
 
@@ -53,8 +55,10 @@ func taintExists(taint v1.Taint, taints []v1.Taint) bool {
 	return false
 }
 
-func markMasterNode(n *v1.Node, taints []v1.Taint) {
-	n.ObjectMeta.Labels[constants.LabelNodeRoleMaster] = ""
+func markControlPlaneNode(n *v1.Node, taints []v1.Taint) {
+	// TODO: https://github.com/kubernetes/kubeadm/issues/2200
+	n.ObjectMeta.Labels[constants.LabelNodeRoleOldControlPlane] = ""
+	n.ObjectMeta.Labels[constants.LabelNodeRoleControlPlane] = ""
 
 	for _, nt := range n.Spec.Taints {
 		if !taintExists(nt, taints) {

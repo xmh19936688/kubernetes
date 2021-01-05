@@ -22,8 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/schemaconv"
 	"k8s.io/kube-openapi/pkg/util/proto"
-	smdschema "sigs.k8s.io/structured-merge-diff/schema"
-	"sigs.k8s.io/structured-merge-diff/typed"
+	"sigs.k8s.io/structured-merge-diff/v4/typed"
 )
 
 // groupVersionKindExtensionKey is the key used to lookup the
@@ -31,26 +30,32 @@ import (
 // definition's "extensions" map.
 const groupVersionKindExtensionKey = "x-kubernetes-group-version-kind"
 
-type gvkParser struct {
+// GvkParser contains a Parser that allows introspecting the schema.
+type GvkParser struct {
 	gvks   map[schema.GroupVersionKind]string
 	parser typed.Parser
 }
 
-func (p *gvkParser) Type(gvk schema.GroupVersionKind) typed.ParseableType {
+// Type returns a helper which can produce objects of the given type. Any
+// errors are deferred until a further function is called.
+func (p *GvkParser) Type(gvk schema.GroupVersionKind) *typed.ParseableType {
 	typeName, ok := p.gvks[gvk]
 	if !ok {
 		return nil
 	}
-	return p.parser.Type(typeName)
+	t := p.parser.Type(typeName)
+	return &t
 }
 
-func newGVKParser(models proto.Models) (*gvkParser, error) {
-	typeSchema, err := schemaconv.ToSchema(models)
+// NewGVKParser builds a GVKParser from a proto.Models. This
+// will automatically find the proper version of the object, and the
+// corresponding schema information.
+func NewGVKParser(models proto.Models, preserveUnknownFields bool) (*GvkParser, error) {
+	typeSchema, err := schemaconv.ToSchemaWithPreserveUnknownFields(models, preserveUnknownFields)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert models to schema: %v", err)
 	}
-	typeSchema = makeRawExtensionUntyped(typeSchema)
-	parser := gvkParser{
+	parser := GvkParser{
 		gvks: map[schema.GroupVersionKind]string{},
 	}
 	parser.parser = typed.Parser{Schema: *typeSchema}
@@ -119,21 +124,4 @@ func parseGroupVersionKind(s proto.Schema) []schema.GroupVersionKind {
 	}
 
 	return gvkListResult
-}
-
-// makeRawExtensionUntyped explicitly sets RawExtension's type in the schema to Untyped atomic
-// TODO: remove this once kube-openapi is updated to include
-// https://github.com/kubernetes/kube-openapi/pull/133
-func makeRawExtensionUntyped(s *smdschema.Schema) *smdschema.Schema {
-	s2 := &smdschema.Schema{}
-	for _, t := range s.Types {
-		t2 := t
-		if t2.Name == "io.k8s.apimachinery.pkg.runtime.RawExtension" {
-			t2.Atom = smdschema.Atom{
-				Untyped: &smdschema.Untyped{},
-			}
-		}
-		s2.Types = append(s2.Types, t2)
-	}
-	return s2
 }

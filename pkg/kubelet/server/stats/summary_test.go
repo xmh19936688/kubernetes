@@ -27,7 +27,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	statsapi "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
+	statsapi "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 	"k8s.io/kubernetes/pkg/kubelet/cm"
 	statstest "k8s.io/kubernetes/pkg/kubelet/server/stats/testing"
 )
@@ -74,6 +74,7 @@ func TestSummaryProviderGetStats(t *testing.T) {
 		On("GetNodeConfig").Return(nodeConfig).
 		On("GetPodCgroupRoot").Return(cgroupRoot).
 		On("ListPodStats").Return(podStats, nil).
+		On("ListPodStatsAndUpdateCPUNanoCoreUsage").Return(podStats, nil).
 		On("ImageFsStats").Return(imageFsStats, nil).
 		On("RootFsStats").Return(rootFsStats, nil).
 		On("RlimitStats").Return(rlimitStats, nil).

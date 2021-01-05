@@ -55,9 +55,11 @@ type winNodeStatsClient interface {
 
 type nodeMetrics struct {
 	cpuUsageCoreNanoSeconds   uint64
+	cpuUsageNanoCores         uint64
 	memoryPrivWorkingSetBytes uint64
 	memoryCommittedBytes      uint64
 	timeStamp                 time.Time
+	interfaceStats            []cadvisorapi.InterfaceStats
 }
 
 type nodeInfo struct {
@@ -66,6 +68,11 @@ type nodeInfo struct {
 	osImageVersion              string
 	// startTime is the time when the node was started
 	startTime time.Time
+}
+
+type cpuUsageCoreNanoSecondsCache struct {
+	latestValue   uint64
+	previousValue uint64
 }
 
 // newClient constructs a Client.
@@ -113,11 +120,6 @@ func (c *StatsClient) createRootContainerInfo() (*cadvisorapiv2.ContainerInfo, e
 		return nil, err
 	}
 
-	netAdapterStats, err := getNetAdapterStats()
-	if err != nil {
-		return nil, err
-	}
-
 	var stats []*cadvisorapiv2.ContainerStats
 	stats = append(stats, &cadvisorapiv2.ContainerStats{
 		Timestamp: nodeMetrics.timeStamp,
@@ -126,12 +128,17 @@ func (c *StatsClient) createRootContainerInfo() (*cadvisorapiv2.ContainerInfo, e
 				Total: nodeMetrics.cpuUsageCoreNanoSeconds,
 			},
 		},
+		CpuInst: &cadvisorapiv2.CpuInstStats{
+			Usage: cadvisorapiv2.CpuInstUsage{
+				Total: nodeMetrics.cpuUsageNanoCores,
+			},
+		},
 		Memory: &cadvisorapi.MemoryStats{
 			WorkingSet: nodeMetrics.memoryPrivWorkingSetBytes,
 			Usage:      nodeMetrics.memoryCommittedBytes,
 		},
 		Network: &cadvisorapiv2.NetworkStats{
-			Interfaces: netAdapterStats,
+			Interfaces: nodeMetrics.interfaceStats,
 		},
 	})
 

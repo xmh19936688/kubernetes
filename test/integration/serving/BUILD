@@ -12,19 +12,20 @@ go_test(
         "main_test.go",
         "serving_test.go",
     ],
+    rundir = ".",
     tags = [
         "etcd",
         "integration",
     ],
     deps = [
-        "//cmd/cloud-controller-manager/app/testing:go_default_library",
         "//cmd/kube-apiserver/app/testing:go_default_library",
         "//cmd/kube-controller-manager/app/testing:go_default_library",
         "//cmd/kube-scheduler/app/testing:go_default_library",
-        "//pkg/cloudprovider/providers/fake:go_default_library",
         "//staging/src/k8s.io/apiserver/pkg/server:go_default_library",
         "//staging/src/k8s.io/apiserver/pkg/server/options:go_default_library",
         "//staging/src/k8s.io/cloud-provider:go_default_library",
+        "//staging/src/k8s.io/cloud-provider/app/testing:go_default_library",
+        "//staging/src/k8s.io/cloud-provider/fake:go_default_library",
         "//test/integration/framework:go_default_library",
     ],
 )
